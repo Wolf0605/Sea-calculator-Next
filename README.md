@@ -33,6 +33,8 @@ npm run dev
 
 Vercel을 통해 배포되어 있습니다.
 
+🔗 **라이브 URL:** https://sea-calculator-app.vercel.app
+
 ## 📁 프로젝트 구조
 
 ```
