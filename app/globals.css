@@ -1,0 +1,80 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  background: linear-gradient(160deg, #0a2342 0%, #0d4f6e 30%, #1a7a8a 60%, #2ec4b6 100%);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* 배경 물결 */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  border-radius: 40%;
+  opacity: 0.04;
+  pointer-events: none;
+  animation: wave 14s infinite linear;
+  background: radial-gradient(ellipse at center, #7fffd4 0%, transparent 60%);
+}
+
+body::after {
+  background: radial-gradient(ellipse at center, #00bcd4 0%, transparent 60%);
+  animation-duration: 10s;
+  animation-direction: reverse;
+}
+
+@keyframes wave {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* 기포 */
+@keyframes rise {
+  0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+/* 팝업 float */
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translateY(0); }
+  20%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-100px); }
+}
+
+/* 패널 슬라이드 */
+@keyframes slideDown {
+  from { max-height: 0; opacity: 0; }
+  to   { max-height: 100px; opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { max-height: 100px; opacity: 1; }
+  to   { max-height: 0; opacity: 0; }
+}
+
+/* 버튼 bounce */
+@keyframes btnBounce {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.25); }
+}
