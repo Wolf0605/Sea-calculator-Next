@@ -65,7 +65,7 @@ function BubbleField() {
             height: b.size,
             borderRadius: '50%',
             background: 'rgba(127,255,212,0.15)',
-            animation: `rise ${b.duration}s ${b.delay}s infinite linear`,
+            animation: `rise ${b.duration}s ${b.delay}s infinite linear backwards`,
           }}
         />
       ))}
@@ -76,6 +76,7 @@ function BubbleField() {
 /* ─── Web Audio 소리 ────────────────────────────── */
 function useAudio() {
   const ctxRef = useRef<AudioContext | null>(null);
+  const ambientStartedRef = useRef(false);
 
   const getCtx = useCallback(() => {
     if (!ctxRef.current) {
@@ -85,39 +86,119 @@ function useAudio() {
     return ctxRef.current;
   }, []);
 
+  const startAmbient = useCallback((ctx: AudioContext) => {
+    if (ambientStartedRef.current) return;
+    ambientStartedRef.current = true;
+    try {
+      const bufferSize = ctx.sampleRate * 4;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 200;
+
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = 0.13;
+
+      source.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      source.start();
+    } catch (_) {}
+  }, []);
+
+  // 페이지 로드 즉시 앰비언트 시작 시도
+  // 브라우저가 막으면(suspended) 첫 터치/클릭 시 자동 재개
+  useEffect(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      ctxRef.current = ctx;
+      startAmbient(ctx);
+
+      if (ctx.state === 'suspended') {
+        const resume = () => {
+          ctx.resume().then(() => startAmbient(ctx));
+          document.removeEventListener('click', resume);
+          document.removeEventListener('touchstart', resume);
+        };
+        document.addEventListener('click', resume);
+        document.addEventListener('touchstart', resume);
+      }
+    } catch (_) {}
+  }, [startAmbient]);
+
   const playSound = useCallback((type: 'num' | 'func' | 'op' | 'equal' | 'correct' | 'wrong') => {
     try {
       const ctx = getCtx();
+      startAmbient(ctx);
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.type = 'sine';
 
       const now = ctx.currentTime;
-      if (type === 'op') {
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(660, now + 0.08);
-      } else if (type === 'equal') {
-        osc.frequency.setValueAtTime(660, now);
-        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
-      } else if (type === 'correct') {
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.15);
-      } else if (type === 'wrong') {
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.exponentialRampToValueAtTime(220, now + 0.15);
-      } else {
+
+      if (type === 'num') {
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(1200, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.07);
-      }
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
 
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-      osc.start(now);
-      osc.stop(now + 0.18);
+      } else if (type === 'func') {
+        // AC/±/% - 부드러운 중간음
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(480, now + 0.1);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now); osc.stop(now + 0.18);
+
+      } else if (type === 'op') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(660, now + 0.08);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
+
+      } else if (type === 'equal') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
+
+      } else if (type === 'correct') {
+        // 정답 - 밝고 상승하는 3연음
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.setValueAtTime(1100, now + 0.1);
+        osc.frequency.setValueAtTime(1320, now + 0.2);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.start(now); osc.stop(now + 0.4);
+
+      } else if (type === 'wrong') {
+        // 오답 - 톱니파로 거칠고 불쾌한 하강음
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.3);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.start(now); osc.stop(now + 0.35);
+      }
     } catch (_) {}
-  }, [getCtx]);
+  }, [getCtx, startAmbient]);
 
   return playSound;
 }
@@ -269,6 +350,7 @@ export default function CalculatorPage() {
 
   const playSound = useAudio();
 
+
   const loadNextQuiz = useCallback(() => {
     const q = makeQuiz();
     quizRef.current = q;
@@ -396,7 +478,6 @@ export default function CalculatorPage() {
 
   const displayValue = current.length > 9 ? parseFloat(current).toExponential(3) : current;
   const fontSize = displayValue.length > 9 ? 32 : displayValue.length > 7 ? 44 : 64;
-  const calcWidth = Math.min(typeof window !== 'undefined' ? window.innerWidth : 420, 420);
 
   return (
     <main style={{
